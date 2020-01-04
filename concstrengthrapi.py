@@ -17,7 +17,25 @@ expected = {
     "age": {"min":1,"max":365},
 }
 
-model = load_model("testmodel.h5")
+model = load_model("testmodel.h5") 
+
+#creating stats class, containing value, mean, std
+class stats:
+    def __init__(self, mean, std):
+        self.mean = mean
+        self.std = std 
+    def normalize(self, value, mean, std):
+        self.normalized = ((value - mean) / std)  
+
+#Intialising objects containing std and mean
+cement = stats(281.346602,104.505455)
+slag = stats(71.850902,85.812598)    
+flyash = stats(55.238419,63.853538)
+water = stats(182.108044,21.215630)
+superplasticizer = stats(6.091262,5.998052)
+coarseaggregate = stats(974.500000,76.926675)
+fineaggregate = stats(771.734535,80.189816) 
+age = stats(45.313454,62.168311)
 
 @app.route('/api/calcstrength', methods= ['POST'])
 def calc_strength():
@@ -44,17 +62,41 @@ def calc_strength():
 
     if len(error) < 1:
         #if no errors, start predicting 
+
+        cement.value = content['cement']
+        slag.value = content['slag']
+        flyash.value = content['flyash']
+        water.value = content['water']
+        superplasticizer.value = content['superplasticizer']
+        coarseaggregate.value = content['coarseaggregate']
+        fineaggregate.value = content['fineaggregate']
+        age.value = content['age']
+
+        #Normalizing input value of variables
+        cement.normalize(cement.value,cement.mean,cement.std)
+        slag.normalize(slag.value,slag.mean,slag.std)
+        flyash.normalize(flyash.value,flyash.mean,flyash.std)
+        water.normalize(water.value,water.mean,water.std)
+        superplasticizer.normalize(superplasticizer.value,superplasticizer.mean, superplasticizer.std)
+        coarseaggregate.normalize(coarseaggregate.value,coarseaggregate.mean, coarseaggregate.std)
+        fineaggregate.normalize(fineaggregate.value,fineaggregate.mean,fineaggregate.std)
+        age.normalize(age.value,age.mean,age.std) 
+
+        #creating array 
         input_array = np.zeros((1,8))
 
-        input_array[0,0] = content['cement']
-        input_array[0,1] = content['slag']
-        input_array[0,2] = content['flyash']
-        input_array[0,3] = content['water']
-        input_array[0,4] = content['superplasticizer']
-        input_array[0,5] = content['coarseaggregate']
-        input_array[0,6] = content['fineaggregate']
-        input_array[0,7] = content['age']
+        #assigning normalized variables to corresponding array position
+        input_array[0,0] = cement.normalized
+        input_array[0,1] = slag.normalized
+        input_array[0,2] = flyash.normalized
+        input_array[0,3] = water.normalized
+        input_array[0,4] = superplasticizer.normalized
+        input_array[0,5] = coarseaggregate.normalized 
+        input_array[0,6] = fineaggregate.normalized
+        input_array[0,7] = age.normalized 
 
+
+        #predicting model 
         pred = model.predict(input_array)
         conc_strength = float(pred[0])
         response = {"id": str(uuid.uuid4()), 'Concrete strength': conc_strength}
@@ -66,13 +108,6 @@ def calc_strength():
 
     return jsonify(response)
 
-#need to normalize the content that comes in
-#get normalizing from load concreg.py
-
-
-
-
-    
 
 if __name__ == '__main__':
     app.debug = True
